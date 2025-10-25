@@ -12,10 +12,11 @@ import httpx
 from pydantic import BaseModel
 
 from app.pydant import User as DbUser, UserCreate, PostResponse, PostCreate, Token, Name_JWT, LocationCreate, LocationResponse
-from app.db.models import User, Post, Location
+from app.db.models import User, Post
 from app.db.database import engine, sesion_local, Base
 from app.auth import get_password_hash, verify_password, create_acces_token
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
+from app.json_storage import location_storage
 
 app = FastAPI(title="Gachi Muchenicki API", version="1.0.0")
 
@@ -95,12 +96,12 @@ async def serve_login_page(request: Request):
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Login page not found")
 
-# \u041f\u0420\u041e\u0421\u0422\u041e\u0419 \u041b\u041e\u0413\u0418\u041d \u0414\u041b\u042f \u0424\u0420\u041e\u041d\u0422\u0415\u041d\u0414\u0410 - \u0418\u0429\u0415\u041c \u041f\u041e \u0418\u041c\u0415\u041d\u0418
+# ПРОСТОЙ ЛОГИН ДЛЯ ФРОНТЕНДА - ВОЗВРАЩАЕМ ТОКЕН СРАЗУ
 @app.post("/gachi_muchenicki/simple-login/")
 async def simple_login(request: Request, db: Session = Depends(get_db)):
     try:
         form_data = await request.form()
-        username = form_data.get("username")  # \u0422\u0435\u043f\u0435\u0440\u044c \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c username
+        username = form_data.get("username")
         password = form_data.get("password")
         
         print(f"DEBUG: Login attempt - Username: {username}")
@@ -108,21 +109,31 @@ async def simple_login(request: Request, db: Session = Depends(get_db)):
         if not username or not password:
             raise HTTPException(status_code=400, detail="Username and password required")
         
-        # \u0418\u0449\u0435\u043c \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f \u043f\u043e \u0418\u041c\u0415\u041d\u0418 (username)
+        # Ищем пользователя по имени
         db_user = db.query(User).filter(User.name == username).first()
         
         if db_user is None:
             print(f"DEBUG: User not found with username: {username}")
             raise HTTPException(status_code=401, detail="Incorrect username or password")
 
-        # \u041f\u0440\u043e\u0432\u0435\u0440\u044f\u0435\u043c \u043f\u0430\u0440\u043e\u043b\u044c
+        # Проверяем пароль
         if not verify_password(password, db_user.hash_password):
             print(f"DEBUG: Password verification failed for user: {username}")
             raise HTTPException(status_code=401, detail="Incorrect username or password")
         
         print(f"DEBUG: Login successful for user: {username}")
-        # \u041f\u0435\u0440\u0435\u043d\u0430\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u043c \u043d\u0430 \u043a\u0430\u0440\u0442\u0443
-        return RedirectResponse(url="/gachi_muchenicki/map/", status_code=303)
+        
+        # Создаем токен
+        access_token = create_acces_token(
+            data={"sub": db_user.email},
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer",
+            "message": "Login successful"
+        }
         
     except Exception as e:
         print(f"DEBUG: Login error: {str(e)}")
@@ -262,3 +273,76 @@ async def serve_map_page(request: Request):
         raise HTTPException(status_code=404, detail="Map page not found")
     
     return FileResponse(html_file_path)
+
+# ЭНДПОИНТЫ ДЛЯ РАБОТЫ С ЛОКАЦИЯМИ (JSON)
+@app.post("/gachi_muchenicki/locations/", response_model=LocationResponse)
+async def create_location(
+    location: LocationCreate,
+    db: Session = Depends(get_db)
+):
+    # Берем первого пользователя из БД (или создаем временного)
+    db_user = db.query(User).first()
+    if not db_user:
+        # Если нет пользователей, создаем временного
+        db_user = User(
+            name="temp_user",
+            email="temp@example.com", 
+            age=25,
+            town="Moscow",
+            hash_password="temp"
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+    
+    location_data = {
+        "name": location.name,
+        "address": location.address,
+        "latitude": location.latitude,
+        "longitude": location.longitude,
+        "start_time": location.start_time,
+        "end_time": location.end_time,
+        "break_start": location.break_start,
+        "break_end": location.break_end,
+        "travel_time": location.travel_time,
+        "user_id": db_user.id
+    }
+    
+    created_location = location_storage.create_location(location_data)
+    return created_location
+
+@app.get("/gachi_muchenicki/locations/", response_model=List[LocationResponse])
+async def get_user_locations(db: Session = Depends(get_db)):
+    # Возвращаем все локации (или можно фильтровать по user_id если нужно)
+    locations = location_storage._read_locations()
+    return locations
+
+@app.patch("/gachi_muchenicki/locations/{location_id}")
+async def update_location_travel_time(
+    location_id: int,
+    travel_time: str,
+    db: Session = Depends(get_db)
+):
+    # Находим локацию по ID и обновляем время
+    locations = location_storage._read_locations()
+    
+    for location in locations:
+        if location['id'] == location_id:
+            location['travel_time'] = travel_time
+            location_storage._write_locations(locations)
+            return {"message": "Travel time updated successfully", "location": location}
+    
+    raise HTTPException(status_code=404, detail="Location not found")
+
+@app.delete("/gachi_muchenicki/locations/{location_id}")
+async def delete_location(location_id: int, db: Session = Depends(get_db)):
+    # Удаляем локацию по ID
+    locations = location_storage._read_locations()
+    
+    for i, location in enumerate(locations):
+        if location['id'] == location_id:
+            locations.pop(i)
+            location_storage._write_locations(locations)
+            return {"message": "Location deleted successfully"}
+    
+    raise HTTPException(status_code=404, detail="Location not found")

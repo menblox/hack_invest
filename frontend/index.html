@@ -102,79 +102,6 @@
             gap: 10px;
         }
         
-        .search-container {
-            margin-bottom: 20px;
-        }
-        
-        .search-input-group {
-            position: relative;
-            display: flex;
-        }
-        
-        #search {
-            flex: 1;
-            padding: 15px 50px 15px 20px;
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        #search:focus {
-            outline: none;
-            border-color: #4CAF50;
-            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-        }
-        
-        #search-btn {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            padding: 10px 15px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        #search-btn:hover {
-            background: #45a049;
-            transform: translateY(-50%) scale(1.05);
-        }
-        
-        .search-results {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #e9ecef;
-            border-radius: 12px;
-            background: white;
-            margin-top: 10px;
-            display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        
-        .search-result-item {
-            padding: 15px 20px;
-            border-bottom: 1px solid #f1f3f4;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 14px;
-        }
-        
-        .search-result-item:hover {
-            background: #f8f9fa;
-            transform: translateX(5px);
-        }
-        
-        .search-result-item:last-child {
-            border-bottom: none;
-        }
-        
         .controls-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -311,6 +238,31 @@
             box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
         }
         
+        /* Модальное окно */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
         /* Адаптивность для мобильных */
         @media (max-width: 768px) {
             .bottom-panel {
@@ -361,19 +313,9 @@
                     <i class="fas fa-map-marked-alt"></i> Управление картой
                 </div>
                 
-                <div class="search-container">
-                    <div class="search-input-group">
-                        <input type="text" id="search" placeholder="Введите адрес (например: РОСТОВ ДГТУ)">
-                        <button id="search-btn">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                    <div class="search-results" id="search-results"></div>
-                </div>
-                
                 <div class="controls-grid">
-                    <button class="control-btn" onclick="addMarkerAtCurrentLocation()">
-                        <i class="fas fa-map-marker-alt"></i> Добавить маркер
+                    <button class="control-btn" onclick="openAddPointModal()">
+                        <i class="fas fa-plus-circle"></i> Добавить точку
                     </button>
                     <button class="control-btn" onclick="clearAllMarkers()">
                         <i class="fas fa-trash"></i> Очистить все
@@ -387,18 +329,9 @@
                 
                 <div class="markers-list" id="markers-list">
                     <h4 style="margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-layer-group"></i> Мои маркеры <span id="markers-count" style="background: #667eea; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">0/10</span>
+                        <i class="fas fa-layer-group"></i> Мои точки <span id="markers-count" style="background: #667eea; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">0</span>
                     </h4>
                     <div id="markers-container"></div>
-                </div>
-                
-                <div class="info-section" id="route-info" style="display: none;">
-                    <h4><i class="fas fa-route"></i> Маршрут</h4>
-                    <p id="route-distance"></p>
-                    <p id="route-duration"></p>
-                    <button class="clear-btn" onclick="clearRoute()" style="margin-top: 10px;">
-                        <i class="fas fa-trash"></i> Очистить маршрут
-                    </button>
                 </div>
             </div>
         </div>
@@ -412,46 +345,36 @@
     <script>
         let map;
         let userLocation = null;
-        let currentMarker = null;
         let routeControl = null;
         let userMarker = null;
-        let markers = []; // Массив для хранения до 10 маркеров
+        let markers = [];
         let markersCount = 0;
         let panelExpanded = false;
+        let selectedCoords = null;
+        let currentModal = null;
         
-        // Инициализация карты с красивым стилем
+        // Инициализация карты
         function initMap() {
             map = L.map('leaflet-map').setView([55.7558, 37.6173], 10);
             
-            // Красивые тайлы CartoDB Voyager
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
                 subdomains: 'abcd',
                 maxZoom: 20
             }).addTo(map);
             
-            // Получаем текущее местоположение
             getCurrentLocation();
             
-            // Обработчик ввода в поиске
-            document.getElementById('search').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    searchLocation();
-                }
-            });
-            
-            // Обработчики для выдвижной панели
+            // Обработчики для панели
             const panel = document.getElementById('bottom-panel');
             const handle = document.getElementById('panel-handle');
             
-            // Наведение на панель
             panel.addEventListener('mouseenter', function() {
                 if (!panelExpanded) {
                     expandPanel();
                 }
             });
             
-            // Клик на ручку панели
             handle.addEventListener('click', function() {
                 if (panelExpanded) {
                     collapsePanel();
@@ -460,34 +383,14 @@
                 }
             });
             
-            // Свайп для мобильных
-            let startY = 0;
-            let currentY = 0;
-            
-            panel.addEventListener('touchstart', function(e) {
-                startY = e.touches[0].clientY;
-                currentY = startY;
-            });
-            
-            panel.addEventListener('touchmove', function(e) {
-                currentY = e.touches[0].clientY;
-                const diff = startY - currentY;
-                
-                if (diff > 50 && !panelExpanded) {
-                    // Свайп вверх - открываем
-                    expandPanel();
-                } else if (diff < -50 && panelExpanded) {
-                    // Свайп вниз - закрываем
-                    collapsePanel();
-                }
-            });
-            
-            // Закрытие панели при клике на карту
             map.getContainer().addEventListener('click', function() {
                 if (panelExpanded) {
                     collapsePanel();
                 }
             });
+            
+            // Загружаем существующие локации пользователя
+            loadUserLocations();
         }
 
         // Раскрытие панели
@@ -514,7 +417,6 @@
                             position.coords.longitude
                         ];
                         
-                        // Добавляем метку текущего местоположения
                         userMarker = L.marker(userLocation, {
                             className: 'user-marker'
                         })
@@ -522,25 +424,112 @@
                             .bindPopup('<div style="font-weight: bold; color: #4CAF50;">📍 Ваше местоположение</div>')
                             .openPopup();
                         
-                        // Центрируем карту на пользователе
                         map.setView(userLocation, 13);
-                        
-                        // Получаем адрес текущего местоположения
                         getAddressFromCoords(userLocation[0], userLocation[1], 'current-location');
                     },
                     (error) => {
-                        console.log('Не удалось получить местоположение:', error);
-                        userLocation = [55.7558, 37.6173]; // Москва по умолчанию
-                        document.getElementById('current-location').textContent = 
-                            '📍 Используется Москва по умолчанию';
+                        userLocation = [55.7558, 37.6173];
+                        document.getElementById('current-location').textContent = '📍 Используется Москва по умолчанию';
                     }
                 );
             }
         }
 
-        // Поиск мест по названию
-        async function searchLocation() {
-            const query = document.getElementById('search').value.trim();
+        // Функция для открытия модального окна добавления точки
+        function openAddPointModal() {
+            // Закрываем предыдущее модальное окно, если есть
+            if (currentModal) {
+                closeModal();
+            }
+            
+            // Создаем модальное окно
+            const modal = document.createElement('div');
+            modal.className = 'modal-backdrop';
+            modal.id = 'add-point-modal';
+            
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3 style="margin-bottom: 20px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-map-marker-alt"></i> Добавить точку
+                    </h3>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Поиск адреса:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="modal-search" placeholder="Введите адрес" 
+                                   style="flex: 1; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 14px;">
+                            <button onclick="searchLocationModal()" 
+                                    style="background: #4CAF50; color: white; border: none; padding: 12px 15px; border-radius: 8px; cursor: pointer;">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <div id="modal-search-results" style="max-height: 150px; overflow-y: auto; margin-top: 10px; display: none;"></div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Начало работы:</label>
+                            <input type="time" id="start-time" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Конец работы:</label>
+                            <input type="time" id="end-time" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;">
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Начало перерыва:</label>
+                            <input type="time" id="break-start" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Конец перерыва:</label>
+                            <input type="time" id="break-end" style="width: 100%; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px;">
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="closeModal()" 
+                                style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            Отмена
+                        </button>
+                        <button onclick="createLocation()" 
+                                style="padding: 12px 20px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            Создать точку
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            currentModal = modal;
+            
+            // Обработчик клика вне модального окна
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // Обработчик Enter в поиске
+            document.getElementById('modal-search').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchLocationModal();
+                }
+            });
+        }
+
+        // Закрытие модального окна
+        function closeModal() {
+            if (currentModal) {
+                currentModal.remove();
+                currentModal = null;
+            }
+        }
+
+        // Поиск в модальном окне
+        async function searchLocationModal() {
+            const query = document.getElementById('modal-search').value.trim();
             
             if (!query) {
                 alert('Введите адрес для поиска');
@@ -550,27 +539,31 @@
             try {
                 const response = await fetch(`/gachi_muchenicki/geocode/?query=${encodeURIComponent(query)}`);
                 const results = await response.json();
-                
-                displaySearchResults(results);
+                displayModalSearchResults(results);
             } catch (error) {
                 console.error('Ошибка поиска:', error);
                 alert('Ошибка при поиске адреса');
             }
         }
 
-        // Отображение результатов поиска
-        function displaySearchResults(results) {
-            const resultsContainer = document.getElementById('search-results');
+        // Отображение результатов поиска в модальном окне
+        function displayModalSearchResults(results) {
+            const resultsContainer = document.getElementById('modal-search-results');
             resultsContainer.innerHTML = '';
             
             if (results.length === 0) {
-                resultsContainer.innerHTML = '<div class="search-result-item">Ничего не найдено</div>';
+                resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; color: #6c757d;">Ничего не найдено</div>';
             } else {
                 results.forEach(result => {
                     const item = document.createElement('div');
-                    item.className = 'search-result-item';
-                    item.textContent = result.name;
-                    item.onclick = () => selectSearchResult(result);
+                    item.style.cssText = 'padding: 12px; border-bottom: 1px solid #e9ecef; cursor: pointer; transition: background 0.2s;';
+                    item.innerHTML = `
+                        <div style="font-weight: 500; margin-bottom: 4px;">${result.name.split(',')[0]}</div>
+                        <div style="font-size: 12px; color: #6c757d;">${result.name}</div>
+                    `;
+                    item.onclick = () => selectModalSearchResult(result);
+                    item.onmouseenter = () => item.style.background = '#f8f9fa';
+                    item.onmouseleave = () => item.style.background = 'white';
                     resultsContainer.appendChild(item);
                 });
             }
@@ -578,138 +571,271 @@
             resultsContainer.style.display = 'block';
         }
 
-        // Выбор результата поиска
-        function selectSearchResult(result) {
-            // Скрываем результаты
-            document.getElementById('search-results').style.display = 'none';
-            
-            // Очищаем поле поиска
-            document.getElementById('search').value = result.name;
-            
-            // Добавляем маркер по выбранному адресу
-            addMarkerFromSearch(result);
-            
-            // Центрируем карту на выбранном месте
-            const latlng = [result.lat, result.lon];
-            map.setView(latlng, 15);
-            
-            // Строим маршрут от текущего местоположения до выбранного места
-            if (userLocation) {
-                buildRoute(userLocation, latlng, result.name);
-            }
+        // Выбор результата в модальном окне
+        function selectModalSearchResult(result) {
+            document.getElementById('modal-search').value = result.name;
+            document.getElementById('modal-search-results').style.display = 'none';
+            selectedCoords = { lat: result.lat, lon: result.lon, name: result.name };
         }
 
-        // Добавление маркера из поиска
-        function addMarkerFromSearch(result) {
-            if (markersCount >= 10) {
-                alert('Достигнут лимит в 10 маркеров. Удалите некоторые маркеры перед добавлением новых.');
+        // Создание локации
+        async function createLocation() {
+            if (!selectedCoords) {
+                alert('Выберите адрес из поиска');
                 return;
             }
             
-            const latlng = [result.lat, result.lon];
-            const markerId = Date.now(); // Уникальный ID для маркера
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
+            const breakStart = document.getElementById('break-start').value;
+            const breakEnd = document.getElementById('break-end').value;
             
-            // Создаем красивый маркер
+            if (!startTime || !endTime) {
+                alert('Заполните время начала и конца работы');
+                return;
+            }
+            
+            try {
+                const locationData = {
+                    name: selectedCoords.name.split(',')[0],
+                    address: selectedCoords.name,
+                    latitude: selectedCoords.lat,
+                    longitude: selectedCoords.lon,
+                    start_time: startTime,
+                    end_time: endTime,
+                    break_start: breakStart,
+                    break_end: breakEnd
+                };
+                
+                // Получаем токен (предполагается, что он хранится в localStorage)
+                const token = localStorage.getItem('access_token');
+                
+                const response = await fetch('/gachi_muchenicki/locations/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(locationData)
+                });
+                
+                if (response.ok) {
+                    const location = await response.json();
+                    addLocationToMap(location);
+                    
+                    // ЗАКРЫВАЕМ МОДАЛЬНОЕ ОКНО ПОСЛЕ УСПЕШНОГО СОЗДАНИЯ
+                    closeModal();
+                    
+                    alert('Точка успешно создана!');
+                } else {
+                    throw new Error('Ошибка создания точки');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка при создании точки');
+            }
+        }
+
+        // Добавление локации на карту
+        function addLocationToMap(location) {
+            const latlng = [location.latitude, location.longitude];
+            
             const marker = L.marker(latlng, {
                 className: 'custom-marker'
             })
                 .addTo(map)
                 .bindPopup(`
-                    <div style="min-width: 200px;">
-                        <h4 style="margin: 0 0 8px 0; color: #2c3e50;">${result.name}</h4>
-                        <button onclick="removeMarker(${markerId})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; width: 100%;">
-                            <i class="fas fa-trash"></i> Удалить маркер
-                        </button>
+                    <div style="min-width: 250px;">
+                        <h4 style="margin: 0 0 8px 0; color: #2c3e50;">${location.name}</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 12px; color: #6c757d;">${location.address}</p>
+                        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Работает:</strong> ${location.start_time} - ${location.end_time}</p>
+                        ${location.break_start ? `<p style="margin: 0 0 8px 0; font-size: 12px;"><strong>Перерыв:</strong> ${location.break_start} - ${location.break_end}</p>` : ''}
+                        ${location.travel_time ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #4CAF50;"><strong>Время пути:</strong> ${location.travel_time}</p>` : ''}
+                        <div style="display: flex; gap: 8px; margin-top: 10px;">
+                            <button onclick="getTravelTime(${location.id})" style="background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-clock"></i> Получить время
+                            </button>
+                            <button onclick="deleteLocation(${location.id})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-trash"></i> Удалить
+                            </button>
+                        </div>
                     </div>
                 `);
             
-            // Добавляем маркер в массив
             markers.push({
-                id: markerId,
+                id: location.id,
                 marker: marker,
-                name: result.name,
-                latlng: latlng
+                name: location.name,
+                address: location.address,
+                latlng: latlng,
+                start_time: location.start_time,
+                end_time: location.end_time,
+                break_start: location.break_start,
+                break_end: location.break_end,
+                travel_time: location.travel_time
             });
             
             markersCount++;
             updateMarkersCount();
-            
-            // Обновляем список маркеров
             updateMarkersList();
         }
 
-        // Добавление маркера по текущему местоположению
-        function addMarkerAtCurrentLocation() {
+        // Загрузка локаций пользователя
+        async function loadUserLocations() {
+            try {
+                const token = localStorage.getItem('access_token');
+                if (!token) return;
+                
+                const response = await fetch('/gachi_muchenicki/locations/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const locations = await response.json();
+                    locations.forEach(location => addLocationToMap(location));
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки локаций:', error);
+            }
+        }
+
+        // Получение времени пути
+        async function getTravelTime(locationId) {
             if (!userLocation) {
                 alert('Не удалось определить ваше местоположение');
                 return;
             }
             
-            if (markersCount >= 10) {
-                alert('Достигнут лимит в 10 маркеров. Удалите некоторые маркеры перед добавлением новых.');
-                return;
+            const location = markers.find(m => m.id === locationId);
+            if (!location) return;
+            
+            try {
+                // Строим маршрут и получаем время
+                if (routeControl) {
+                    map.removeControl(routeControl);
+                }
+                
+                routeControl = L.Routing.control({
+                    waypoints: [
+                        L.latLng(userLocation[0], userLocation[1]),
+                        L.latLng(location.latlng[0], location.latlng[1])
+                    ],
+                    routeWhileDragging: false,
+                    showAlternatives: false,
+                    lineOptions: { styles: [{color: '#667eea', opacity: 0.8, weight: 5}] },
+                    createMarker: function() { return null; }
+                }).addTo(map);
+                
+                routeControl.on('routesfound', async function(e) {
+                    const routes = e.routes;
+                    const route = routes[0];
+                    const duration = Math.round(route.summary.totalTime / 60);
+                    const travelTime = `${duration} минут`;
+                    
+                    // Обновляем время в БД
+                    const token = localStorage.getItem('access_token');
+                    const response = await fetch(`/gachi_muchenicki/locations/${locationId}?travel_time=${encodeURIComponent(travelTime)}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        // Обновляем маркер на карте
+                        location.travel_time = travelTime;
+                        location.marker.bindPopup(`
+                            <div style="min-width: 250px;">
+                                <h4 style="margin: 0 0 8px 0; color: #2c3e50;">${location.name}</h4>
+                                <p style="margin: 0 0 8px 0; font-size: 12px; color: #6c757d;">${location.address}</p>
+                                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Работает:</strong> ${location.start_time} - ${location.end_time}</p>
+                                ${location.break_start ? `<p style="margin: 0 0 8px 0; font-size: 12px;"><strong>Перерыв:</strong> ${location.break_start} - ${location.break_end}</p>` : ''}
+                                <p style="margin: 0 0 8px 0; font-size: 12px; color: #4CAF50;"><strong>Время пути:</strong> ${travelTime}</p>
+                                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                                    <button onclick="getTravelTime(${location.id})" style="background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                        <i class="fas fa-clock"></i> Обновить время
+                                    </button>
+                                    <button onclick="deleteLocation(${location.id})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                        <i class="fas fa-trash"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        `);
+                        
+                        updateMarkersList();
+                        alert(`Время пути обновлено: ${travelTime}`);
+                    }
+                });
+            } catch (error) {
+                console.error('Ошибка получения времени:', error);
+                alert('Ошибка при получении времени пути');
             }
+        }
+
+        // Удаление локации
+        async function deleteLocation(locationId) {
+            if (!confirm('Вы уверены, что хотите удалить эту точку?')) return;
             
-            const markerId = Date.now();
-            
-            // Создаем маркер по текущему местоположению
-            const marker = L.marker(userLocation, {
-                className: 'custom-marker'
-            })
-                .addTo(map)
-                .bindPopup(`
-                    <div style="min-width: 200px;">
-                        <h4 style="margin: 0 0 8px 0; color: #2c3e50;">Маркер ${markersCount + 1}</h4>
-                        <p style="margin: 0 0 8px 0; font-size: 12px; color: #6c757d;">Добавлен по текущему местоположению</p>
-                        <button onclick="removeMarker(${markerId})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; width: 100%;">
-                            <i class="fas fa-trash"></i> Удалить маркер
-                        </button>
-                    </div>
-                `);
-            
-            // Получаем адрес для названия маркера
-            getAddressFromCoords(userLocation[0], userLocation[1], null, markerId);
-            
-            // Добавляем маркер в массив
-            markers.push({
-                id: markerId,
-                marker: marker,
-                name: `Маркер ${markersCount + 1}`,
-                latlng: userLocation
-            });
-            
-            markersCount++;
-            updateMarkersCount();
-            
-            // Обновляем список маркеров
-            updateMarkersList();
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch(`/gachi_muchenicki/locations/${locationId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const markerIndex = markers.findIndex(m => m.id === locationId);
+                    if (markerIndex !== -1) {
+                        map.removeLayer(markers[markerIndex].marker);
+                        markers.splice(markerIndex, 1);
+                        markersCount--;
+                        updateMarkersCount();
+                        updateMarkersList();
+                    }
+                    alert('Точка удалена');
+                }
+            } catch (error) {
+                console.error('Ошибка удаления:', error);
+                alert('Ошибка при удалении точки');
+            }
         }
 
         // Обновление счетчика маркеров
         function updateMarkersCount() {
-            document.getElementById('markers-count').textContent = `${markersCount}/10`;
+            document.getElementById('markers-count').textContent = markersCount;
         }
 
-        // Обновление списка маркеров в панели
+        // Обновление списка маркеров
         function updateMarkersList() {
             const container = document.getElementById('markers-container');
             container.innerHTML = '';
             
             if (markersCount === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">Маркеры не добавлены</div>';
+                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">Точки не добавлены</div>';
                 return;
             }
             
-            markers.forEach((marker, index) => {
+            markers.forEach((marker) => {
                 const item = document.createElement('div');
                 item.className = 'marker-item';
                 item.innerHTML = `
-                    <div class="marker-name">${marker.name}</div>
+                    <div class="marker-name">
+                        <div style="font-weight: 500; margin-bottom: 4px;">${marker.name}</div>
+                        <div style="font-size: 12px; color: #6c757d;">${marker.start_time} - ${marker.end_time}</div>
+                        ${marker.travel_time ? `<div style="font-size: 12px; color: #4CAF50;">🚗 ${marker.travel_time}</div>` : ''}
+                    </div>
                     <div class="marker-actions">
-                        <button class="action-btn" onclick="centerOnMarker(${marker.id})" title="Центрировать на маркере">
+                        <button class="action-btn" onclick="centerOnMarker(${marker.id})" title="Центрировать">
                             <i class="fas fa-crosshairs"></i>
                         </button>
-                        <button class="clear-btn" onclick="removeMarker(${marker.id})" title="Удалить маркер">
+                        <button class="action-btn" onclick="getTravelTime(${marker.id})" title="Получить время">
+                            <i class="fas fa-clock"></i>
+                        </button>
+                        <button class="clear-btn" onclick="deleteLocation(${marker.id})" title="Удалить">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -718,7 +844,7 @@
             });
         }
 
-        // Центрирование карты на маркере
+        // Центрирование на маркере
         function centerOnMarker(markerId) {
             const markerObj = markers.find(m => m.id === markerId);
             if (markerObj) {
@@ -728,116 +854,55 @@
             }
         }
 
-        // Удаление маркера
-        function removeMarker(markerId) {
-            const markerIndex = markers.findIndex(m => m.id === markerId);
-            if (markerIndex !== -1) {
-                // Удаляем маркер с карты
-                map.removeLayer(markers[markerIndex].marker);
-                
-                // Удаляем из массива
-                markers.splice(markerIndex, 1);
-                markersCount--;
-                updateMarkersCount();
-                
-                // Обновляем список
-                updateMarkersList();
-            }
-        }
-
-        // Очистка всех маркеров
-        function clearAllMarkers() {
-            if (markersCount === 0) {
-                alert('Нет маркеров для удаления');
-                return;
-            }
-            
-            if (confirm(`Вы уверены, что хотите удалить все маркеры (${markersCount})?`)) {
-                markers.forEach(marker => {
-                    map.removeLayer(marker.marker);
-                });
-                
-                markers = [];
-                markersCount = 0;
-                updateMarkersCount();
-                updateMarkersList();
-                
-                alert('Все маркеры удалены');
-            }
-        }
-
         // Получение адреса по координатам
-        async function getAddressFromCoords(lat, lng, elementId, markerId = null) {
+        async function getAddressFromCoords(lat, lng, elementId) {
             try {
                 const response = await fetch(`/gachi_muchenicki/reverse-geocode/?lat=${lat}&lon=${lng}`);
                 const data = await response.json();
-                
-                if (data.name) {
-                    if (elementId) {
-                        document.getElementById(elementId).textContent = `📍 ${data.name}`;
-                    }
-                    
-                    // Обновляем имя маркера если нужно
-                    if (markerId) {
-                        const markerObj = markers.find(m => m.id === markerId);
-                        if (markerObj) {
-                            markerObj.name = data.name;
-                            updateMarkersList();
-                        }
-                    }
+                if (data.name && elementId) {
+                    document.getElementById(elementId).textContent = `📍 ${data.name}`;
                 }
             } catch (error) {
                 console.error('Ошибка получения адреса:', error);
             }
         }
 
-        // Построение маршрута
-        function buildRoute(fromCoords, toCoords, locationName) {
-            // Удаляем предыдущий маршрут
-            if (routeControl) {
-                map.removeControl(routeControl);
+        // Очистка всех маркеров
+        async function clearAllMarkers() {
+            if (markersCount === 0) {
+                alert('Нет точек для удаления');
+                return;
             }
             
-            // Создаем маршрут
-            routeControl = L.Routing.control({
-                waypoints: [
-                    L.latLng(fromCoords[0], fromCoords[1]),
-                    L.latLng(toCoords[0], toCoords[1])
-                ],
-                routeWhileDragging: false,
-                showAlternatives: false,
-                lineOptions: {
-                    styles: [{color: '#667eea', opacity: 0.8, weight: 5}]
-                },
-                createMarker: function() { return null; }
-            }).addTo(map);
-            
-            // Слушаем событие нахождения маршрута
-            routeControl.on('routesfound', function(e) {
-                const routes = e.routes;
-                const route = routes[0];
-                
-                // Получаем информацию о маршруте
-                const distance = (route.summary.totalDistance / 1000).toFixed(1);
-                const duration = Math.round(route.summary.totalTime / 60);
-                
-                // Отображаем информацию
-                document.getElementById('route-distance').textContent = `📏 Расстояние: ${distance} км`;
-                document.getElementById('route-duration').textContent = `⏱️ Время в пути: ${duration} минут`;
-                document.getElementById('route-info').style.display = 'block';
-                
-                expandPanel();
-            });
-        }
-
-        // Очистка маршрута
-        function clearRoute() {
-            if (routeControl) {
-                map.removeControl(routeControl);
-                routeControl = null;
+            if (confirm(`Вы уверены, что хотите удалить все точки (${markersCount})?`)) {
+                try {
+                    const token = localStorage.getItem('access_token');
+                    // Удаляем все точки через API
+                    for (const marker of markers) {
+                        await fetch(`/gachi_muchenicki/locations/${marker.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                    }
+                    
+                    // Очищаем карту
+                    markers.forEach(marker => {
+                        map.removeLayer(marker.marker);
+                    });
+                    
+                    markers = [];
+                    markersCount = 0;
+                    updateMarkersCount();
+                    updateMarkersList();
+                    
+                    alert('Все точки удалены');
+                } catch (error) {
+                    console.error('Ошибка очистки:', error);
+                    alert('Ошибка при удалении точек');
+                }
             }
-            
-            document.getElementById('route-info').style.display = 'none';
         }
 
         // Инициализация при загрузке страницы

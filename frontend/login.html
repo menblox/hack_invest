@@ -120,6 +120,28 @@
             padding: 10px;
             border-radius: 5px;
         }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -129,7 +151,7 @@
             <p>Войдите в свой аккаунт</p>
         </div>
 
-        <form action="/gachi_muchenicki/simple-login/" method="POST">
+        <form id="loginForm">
             <div class="form-group">
                 <label for="username">Логин</label>
                 <input type="text" id="username" name="username" placeholder="Введите ваш логин" required>
@@ -143,6 +165,10 @@
             <button type="submit" class="submit-btn">Войти</button>
         </form>
 
+        <div class="loading" id="loading">
+            <div class="spinner"></div> Вход в систему...
+        </div>
+
         <div class="error-message" id="errorMessage">
             Неверный логин или пароль
         </div>
@@ -153,6 +179,47 @@
     </div>
 
     <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Показываем загрузку и скрываем ошибку
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            
+            try {
+                // Используем simple-login который сразу возвращает токен
+                const response = await fetch('/gachi_muchenicki/simple-login/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Сохраняем токен в localStorage
+                    localStorage.setItem('access_token', data.access_token);
+                    console.log('Токен сохранен:', data.access_token);
+                    
+                    // Перенаправляем на карту
+                    window.location.href = '/gachi_muchenicki/map/';
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Ошибка входа');
+                }
+            } catch (error) {
+                console.error('Ошибка входа:', error);
+                document.getElementById('errorMessage').textContent = error.message || 'Неверный логин или пароль';
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+
         // Показываем сообщение об ошибке если в URL есть параметр error
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('error')) {
