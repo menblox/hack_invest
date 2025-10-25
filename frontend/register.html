@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Регистрация</title>
     <style>
+        /* Ваши стили остаются без изменений */
         * {
             margin: 0;
             padding: 0;
@@ -236,6 +237,14 @@
 
         <form id="registerForm">
             <div class="form-group">
+                <label for="name">Логин</label>
+                <div class="input-wrapper">
+                    <input type="text" id="name" name="name" placeholder="Придумайте логин" required>
+                </div>
+                <div class="error-message" id="nameError">Логин должен содержать от 3 до 20 символов</div>
+            </div>
+
+            <div class="form-group">
                 <label for="email">Email</label>
                 <div class="input-wrapper">
                     <input type="email" id="email" name="email" placeholder="your@email.com" required>
@@ -244,19 +253,19 @@
             </div>
 
             <div class="form-group">
-                <label for="username">Логин</label>
+                <label for="age">Возраст</label>
                 <div class="input-wrapper">
-                    <input type="text" id="username" name="username" placeholder="Придумайте логин" required>
+                    <input type="number" id="age" name="age" placeholder="Ваш возраст" required>
                 </div>
-                <div class="error-message" id="usernameError">Логин должен содержать от 3 до 20 символов</div>
+                <div class="error-message" id="ageError">Введите корректный возраст</div>
             </div>
 
             <div class="form-group">
-                <label for="phone">Телефон</label>
+                <label for="town">Город</label>
                 <div class="input-wrapper">
-                    <input type="tel" id="phone" name="phone" placeholder="+7 (900) 123-45-67" required>
+                    <input type="text" id="town" name="town" placeholder="Ваш город" required>
                 </div>
-                <div class="error-message" id="phoneError">Введите корректный номер телефона</div>
+                <div class="error-message" id="townError">Введите название города</div>
             </div>
 
             <div class="form-group">
@@ -289,7 +298,7 @@
         </form>
 
         <div class="login-link">
-            Уже есть аккаунт? <a href="#">Войти</a>
+            Уже есть аккаунт? <a href="/gachi_muchenicki/login/">Войти</a>
         </div>
     </div>
 
@@ -305,12 +314,6 @@
         function validateEmail(email) {
             const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             return re.test(email);
-        }
-
-        // Валидация телефона
-        function validatePhone(phone) {
-            const re = /^\+7\s?\(?\d{3}\)?\s?\d{3}-?\d{2}-?\d{2}$/;
-            return re.test(phone);
         }
 
         // Проверка сложности пароля
@@ -361,8 +364,8 @@
             }
         });
 
-        document.getElementById('username').addEventListener('input', function() {
-            const error = document.getElementById('usernameError');
+        document.getElementById('name').addEventListener('input', function() {
+            const error = document.getElementById('nameError');
             if (this.value.length < 3 || this.value.length > 20) {
                 this.classList.add('error');
                 this.classList.remove('valid');
@@ -374,9 +377,23 @@
             }
         });
 
-        document.getElementById('phone').addEventListener('input', function() {
-            const error = document.getElementById('phoneError');
-            if (!validatePhone(this.value)) {
+        document.getElementById('age').addEventListener('input', function() {
+            const error = document.getElementById('ageError');
+            const age = parseInt(this.value);
+            if (isNaN(age) || age < 1 || age > 120) {
+                this.classList.add('error');
+                this.classList.remove('valid');
+                error.style.display = 'block';
+            } else {
+                this.classList.remove('error');
+                this.classList.add('valid');
+                error.style.display = 'none';
+            }
+        });
+
+        document.getElementById('town').addEventListener('input', function() {
+            const error = document.getElementById('townError');
+            if (this.value.length < 2) {
                 this.classList.add('error');
                 this.classList.remove('valid');
                 error.style.display = 'block';
@@ -424,29 +441,62 @@
             }
         }
 
-        // ДОБАВЛЕННЫЙ КОД: Обработчик отправки формы
+        // Обработчик отправки формы
         document.getElementById('registerForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
             // Проверяем валидность всех полей
             const isEmailValid = validateEmail(document.getElementById('email').value);
-            const isUsernameValid = document.getElementById('username').value.length >= 3 && document.getElementById('username').value.length <= 20;
-            const isPhoneValid = validatePhone(document.getElementById('phone').value);
+            const isNameValid = document.getElementById('name').value.length >= 3 && document.getElementById('name').value.length <= 20;
+            const age = parseInt(document.getElementById('age').value);
+            const isAgeValid = !isNaN(age) && age >= 1 && age <= 120;
+            const isTownValid = document.getElementById('town').value.length >= 2;
             const isPasswordValid = document.getElementById('password').value.length >= 8 && 
                                    document.getElementById('password').value.match(/\d/) && 
                                    document.getElementById('password').value.match(/[a-zA-Z]/);
             const isConfirmPasswordValid = document.getElementById('password').value === document.getElementById('confirmPassword').value;
 
             // Если все поля валидны
-            if (isEmailValid && isUsernameValid && isPhoneValid && isPasswordValid && isConfirmPasswordValid) {
-                // Показываем сообщение об успехе
-                const successMessage = document.getElementById('successMessage');
-                successMessage.style.display = 'block';
+            if (isEmailValid && isNameValid && isAgeValid && isTownValid && isPasswordValid && isConfirmPasswordValid) {
+                // Собираем данные для отправки
+                const formData = {
+                    name: document.getElementById('name').value,
+                    email: document.getElementById('email').value,
+                    age: age,
+                    town: document.getElementById('town').value,
+                    password: document.getElementById('password').value
+                };
 
-                // Через 2 секунды перенаправляем на нужный эндпоинт
-                setTimeout(() => {
-                    window.location.href = '/gachi_muchenicki/map/';
-                }, 2000);
+                // Отправляем данные на сервер
+                fetch('/gachi_muchenicki/register/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        return response.json().then(error => {
+                            throw new Error(error.detail || 'Ошибка регистрации');
+                        });
+                    }
+                })
+                .then(data => {
+                    // Показываем сообщение об успехе
+                    const successMessage = document.getElementById('successMessage');
+                    successMessage.style.display = 'block';
+
+                    // Через 2 секунды перенаправляем на нужный эндпоинт
+                    setTimeout(() => {
+                        window.location.href = '/gachi_muchenicki/map/';
+                    }, 2000);
+                })
+                .catch(error => {
+                    alert('Ошибка регистрации: ' + error.message);
+                });
             }
         });
     </script>
