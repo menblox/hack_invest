@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивная карта</title>
+    
+    <!-- Подключение Яндекс Карт -->
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=802243e1-f200-43dc-b81e-62c6c6b88397&lang=ru_RU" type="text/javascript"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #map-container {
+            height: 70vh;
+            width: 100%;
+        }
+
+        #menu {
+            height: 30vh;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #search {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #settings {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: #fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23333"><path d="M24 13.616v-3.232c-0.771 0.444-1.635 0.716-2.56 0.716-0.689 0-1.343-0.148-1.938-0.414l-1.677 1.677c1.827 1.165 4.037 1.857 6.418 1.857 0.343 0 0.685-0.016 1.025-0.047l-0.004-0.004zM21.563 12.16c0-0.689-0.148-1.343-0.414-1.938l-1.677 1.677c0.444 0.771 0.716 1.635 0.716 2.56 0 0.343-0.016 0.685-0.047 1.025l-0.004-0.004v-3.232c0.177-0.094 0.347-0.197 0.509-0.309l-0.009-0.009z"/></svg>') no-repeat center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .results {
+            max-height: calc(100% - 70px);
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        .map-placeholder {
+            text-align: center;
+            display: none; /* Скрываем плейсхолдер когда карта загружена */
+        }
+
+        #yandex-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .auth-message {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .auth-buttons button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .login-btn {
+            background: #007bff;
+            color: white;
+        }
+
+        .register-btn {
+            background: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div id="yandex-map"></div>
+        <div class="map-placeholder" id="map-placeholder">
+            <h3>Контейнер для карты</h3>
+            <p>Карта будет подключена через API</p>
+        </div>
+    </div>
+    <div id="menu">
+        <div class="search-container">
+            <input type="text" id="search" placeholder="Поиск мест...">
+            <button id="settings" title="Настройки"></button>
+        </div>
+        <div class="results" id="results">
+            <p>Загружаем данные...</p>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let map;
+        const searchInput = document.getElementById('search');
+        const resultsContainer = document.getElementById('results');
+        const settingsButton = document.getElementById('settings');
+        const mapPlaceholder = document.getElementById('map-placeholder');
+
+        // Инициализация Яндекс Карты
+        function initMap() {
+            ymaps.ready(() => {
+                map = new ymaps.Map('yandex-map', {
+                    center: [55.7558, 37.6173], // Москва
+                    zoom: 10
+                });
+
+                // Скрываем плейсхолдер
+                mapPlaceholder.style.display = 'none';
+                
+                // Загружаем посты с бекенда
+                loadPostsFromBackend();
+            });
+        }
+
+        // Загрузка постов с бекенда
+        async function loadPostsFromBackend() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                
+                if (!token) {
+                    resultsContainer.innerHTML = `
+                        <div class="auth-message">
+                            <p>Для просмотра карты необходимо авторизоваться</p>
+                            <div class="auth-buttons">
+                                <button class="login-btn" onclick="login()">Войти</button>
+                                <button class="register-btn" onclick="register()">Регистрация</button>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const response = await fetch('/gachi_muchenicki/map-data/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных');
+                }
+
+                const posts = await response.json();
+                displayPostsOnMap(posts);
+                displayPostsInResults(posts);
+
+            } catch (error) {
+                console.error('Ошибка загрузки постов:', error);
+                resultsContainer.innerHTML = `<p>Ошибка загрузки данных: ${error.message}</p>`;
+            }
+        }
+
+        // Отображение постов на карте
+        function displayPostsOnMap(posts) {
+            posts.forEach(post => {
+                // Случайные координаты для демонстрации (в реальном приложении должны быть в базе)
+                const randomLat = 55.7558 + (Math.random() - 0.5) * 0.1;
+                const randomLon = 37.6173 + (Math.random() - 0.5) * 0.1;
+                
+                const placemark = new ymaps.Placemark([randomLat, randomLon], {
+                    balloonContent: `
+                        <h3>${post.title}</h3>
+                        <p>${post.body}</p>
+                        <small>Автор: ${post.author.name}</small>
+                    `
+                }, {
+                    preset: 'islands#blueDotIcon'
+                });
+
+                map.geoObjects.add(placemark);
+            });
+        }
+
+        // Отображение постов в результатах
+        function displayPostsInResults(posts) {
+            if (posts.length === 0) {
+                resultsContainer.innerHTML = '<p>Нет доступных постов</p>';
+                return;
+            }
+
+            resultsContainer.innerHTML = posts.map(post => `
+                <div style="margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    <h4>${post.title}</h4>
+                    <p>${post.body}</p>
+                    <small>Автор: ${post.author.name}</small>
+                </div>
+            `).join('');
+        }
+
+        // Поиск
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim();
+                if (query) {
+                    resultsContainer.innerHTML = `<p>Поиск: "${query}" - выполняется...</p>`;
+                    // Здесь можно добавить поиск по постам
+                    setTimeout(() => {
+                        resultsContainer.innerHTML = `<p>Поиск "${query}" - найдено ${Math.floor(Math.random() * 5)} результатов</p>`;
+                    }, 1000);
+                }
+            }
+        });
+
+        settingsButton.addEventListener('click', () => {
+            alert('Настройки карты будут добавлены позже');
+        });
+
+        // Заглушки для авторизации
+        window.login = function() {
+            alert('Форма входа будет реализована позже');
+        }
+
+        window.register = function() {
+            alert('Форма регистрации будет реализована позже');
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>
