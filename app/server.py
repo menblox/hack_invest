@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Iterator
+from typing import List, Iterator, Optional
 import fastapi
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -8,14 +8,16 @@ from datetime import timedelta
 from jose import JWTError, jwt
 from fastapi.responses import FileResponse
 import os
+import httpx
+from pydantic import BaseModel
 
 # ЗАЩИТА
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from app.pydant import User as DbUser, UserCreate, PostResponse, PostCreate, Token, Name_JWT
-from app.db.models import User, Post
+from app.pydant import User as DbUser, UserCreate, PostResponse, PostCreate, Token, Name_JWT, LocationCreate, LocationResponse
+from app.db.models import User, Post, Location
 from app.db.database import engine, sesion_local, Base
 from app.auth import get_password_hash, verify_password, create_acces_token
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
@@ -143,30 +145,79 @@ async def get_user_profile(
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
-# ДАННЫЕ ДЛЯ КАРТЫ (JSON)
-@app.get("/gachi_muchenicki/map-data/", response_model=List[PostResponse])
-@limiter.limit("20/minute")
-async def get_map_data(
-    #current_user: Name_JWT = Depends(verify_token),
-    db: Session = Depends(get_db),
-    request: Request = None
-) -> List[Post]:
-    return db.query(Post).all()
+# ГЕОКОДИРОВАНИЕ - поиск по названию
+@app.get("/gachi_muchenicki/geocode/")
+@limiter.limit("30/minute")
+async def geocode_location(request: Request, query: str):
+    """
+    Геокодирование адреса через Nominatim (OpenStreetMap)
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": query,
+                    "format": "json",
+                    "limit": 10,
+                    "accept-language": "ru"
+                }
+            )
+            
+            if response.status_code == 200:
+                results = response.json()
+                return [
+                    {
+                        "name": result.get("display_name", ""),
+                        "lat": float(result["lat"]),
+                        "lon": float(result["lon"])
+                    }
+                    for result in results
+                ]
+            else:
+                return []
+                
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Geocoding error: {str(e)}")
+
+# ОБРАТНОЕ ГЕОКОДИРОВАНИЕ - получение адреса по координатам
+@app.get("/gachi_muchenicki/reverse-geocode/")
+@limiter.limit("30/minute")
+async def reverse_geocode(request: Request, lat: float, lon: float):
+    """
+    Обратное геокодирование координат в адрес
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={
+                    "lat": lat,
+                    "lon": lon,
+                    "format": "json",
+                    "accept-language": "ru"
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "name": result.get("display_name", ""),
+                    "address": result.get("address", {})
+                }
+            else:
+                return {"name": "Неизвестное место", "address": {}}
+                
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reverse geocoding error: {str(e)}")
 
 # СТРАНИЦА КАРТЫ (HTML)
 @app.get("/gachi_muchenicki/map/")
 @limiter.limit("20/minute")
-async def serve_map_page(
-    request: Request,
-    #current_user: Name_JWT = Depends(verify_token),
-    db: Session = Depends(get_db)
-):
-    # Путь к вашему HTML файлу
+async def serve_map_page(request: Request):
     html_file_path = "frontend/index.html"
     
-    # Проверяем что файл существует
     if not os.path.exists(html_file_path):
         raise HTTPException(status_code=404, detail="Map page not found")
     
-    # Отдаем HTML файл
     return FileResponse(html_file_path)

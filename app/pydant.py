@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 class UserBase(BaseModel):
     name: str
@@ -42,6 +43,22 @@ class Token(BaseModel):
 
 class Name_JWT(BaseModel):
     email: EmailStr
+
+    class Config:
+        from_attributes = True
+
+# НОВЫЕ СХЕМЫ ДЛЯ МЕСТ
+class LocationBase(BaseModel):
+    name: str
+    description: str
+    latitude: float
+    longitude: float
+
+class LocationCreate(LocationBase):
+    pass
+
+class LocationResponse(LocationBase):
+    id: int
 
     class Config:
         from_attributes = True

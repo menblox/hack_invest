@@ -3,250 +3,841 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Интерактивная карта</title>
+    <title>Карта - Gachi Muchenicki</title>
     
-    <!-- Подключение Яндекс Карт -->
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=802243e1-f200-43dc-b81e-62c6c6b88397&lang=ru_RU" type="text/javascript"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Font Awesome для иконок -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
         }
-
-        body {
-            font-family: Arial, sans-serif;
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            overflow: hidden;
         }
-
+        
         #map-container {
-            height: 70vh;
+            height: 100vh;
             width: 100%;
+            position: relative;
         }
-
-        #menu {
-            height: 30vh;
-            padding: 20px;
-            background: #f0f0f0;
-        }
-
-        .search-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        #search {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-
-        #settings {
-            width: 40px;
-            height: 40px;
-            border: none;
-            border-radius: 50%;
-            background: #fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23333"><path d="M24 13.616v-3.232c-0.771 0.444-1.635 0.716-2.56 0.716-0.689 0-1.343-0.148-1.938-0.414l-1.677 1.677c1.827 1.165 4.037 1.857 6.418 1.857 0.343 0 0.685-0.016 1.025-0.047l-0.004-0.004zM21.563 12.16c0-0.689-0.148-1.343-0.414-1.938l-1.677 1.677c0.444 0.771 0.716 1.635 0.716 2.56 0 0.343-0.016 0.685-0.047 1.025l-0.004-0.004v-3.232c0.177-0.094 0.347-0.197 0.509-0.309l-0.009-0.009z"/></svg>') no-repeat center;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .results {
-            max-height: calc(100% - 70px);
-            overflow-y: auto;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-        }
-
-        .map-placeholder {
-            text-align: center;
-            display: none; /* Скрываем плейсхолдер когда карта загружена */
-        }
-
-        #yandex-map {
+        
+        #leaflet-map {
             width: 100%;
             height: 100%;
         }
-
-        .auth-message {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 10px;
+        
+        /* Стили для красивой карты */
+        .leaflet-container {
+            background: #2c3e50;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-
-        .auth-buttons {
+        
+        /* Выдвижная панель снизу */
+        .bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            transform: translateY(calc(100% - 60px));
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .bottom-panel.expanded {
+            transform: translateY(0);
+        }
+        
+        .panel-handle {
+            height: 60px;
             display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .auth-buttons button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            position: relative;
         }
-
-        .login-btn {
-            background: #007bff;
+        
+        .handle-icon {
+            width: 40px;
+            height: 4px;
+            background: #ccc;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .bottom-panel:hover .handle-icon,
+        .bottom-panel.expanded .handle-icon {
+            background: #4CAF50;
+            width: 60px;
+        }
+        
+        .panel-content {
+            padding: 20px;
+            max-height: calc(80vh - 60px);
+            overflow-y: auto;
+        }
+        
+        .panel-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .search-container {
+            margin-bottom: 20px;
+        }
+        
+        .search-input-group {
+            position: relative;
+            display: flex;
+        }
+        
+        #search {
+            flex: 1;
+            padding: 15px 50px 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        #search:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+        
+        #search-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #search-btn:hover {
+            background: #45a049;
+            transform: translateY(-50%) scale(1.05);
+        }
+        
+        .search-results {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            background: white;
+            margin-top: 10px;
+            display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .search-result-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f1f3f4;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+        
+        .search-result-item:hover {
+            background: #f8f9fa;
+            transform: translateX(5px);
+        }
+        
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .control-btn {
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .control-btn:active {
+            transform: translateY(0);
+        }
+        
+        .info-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
             color: white;
         }
-
-        .register-btn {
-            background: #28a745;
+        
+        .info-section h4 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .markers-list {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .marker-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f3f4;
+        }
+        
+        .marker-item:last-child {
+            border-bottom: none;
+        }
+        
+        .marker-name {
+            font-size: 14px;
+            color: #2c3e50;
+            flex: 1;
+        }
+        
+        .marker-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            background: #4CAF50;
             color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .action-btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+        
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .clear-btn:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+        
+        /* Кастомные маркеры */
+        .custom-marker {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .user-marker {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        /* Адаптивность для мобильных */
+        @media (max-width: 768px) {
+            .bottom-panel {
+                transform: translateY(calc(100% - 50px));
+            }
+            
+            .panel-handle {
+                height: 50px;
+            }
+            
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .panel-content {
+                padding: 15px;
+            }
+        }
+        
+        /* Анимация появления маркеров */
+        @keyframes markerAppear {
+            from {
+                opacity: 0;
+                transform: scale(0);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .custom-marker {
+            animation: markerAppear 0.3s ease-out;
         }
     </style>
 </head>
 <body>
     <div id="map-container">
-        <div id="yandex-map"></div>
-        <div class="map-placeholder" id="map-placeholder">
-            <h3>Контейнер для карты</h3>
-            <p>Карта будет подключена через API</p>
+        <div id="leaflet-map"></div>
+        
+        <!-- Выдвижная панель снизу -->
+        <div class="bottom-panel" id="bottom-panel">
+            <div class="panel-handle" id="panel-handle">
+                <div class="handle-icon"></div>
+            </div>
+            <div class="panel-content">
+                <div class="panel-title">
+                    <i class="fas fa-map-marked-alt"></i> Управление картой
+                </div>
+                
+                <div class="search-container">
+                    <div class="search-input-group">
+                        <input type="text" id="search" placeholder="Введите адрес (например: РОСТОВ ДГТУ)">
+                        <button id="search-btn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div class="search-results" id="search-results"></div>
+                </div>
+                
+                <div class="controls-grid">
+                    <button class="control-btn" onclick="addMarkerAtCurrentLocation()">
+                        <i class="fas fa-map-marker-alt"></i> Добавить маркер
+                    </button>
+                    <button class="control-btn" onclick="clearAllMarkers()">
+                        <i class="fas fa-trash"></i> Очистить все
+                    </button>
+                </div>
+                
+                <div class="info-section" id="location-info">
+                    <h4><i class="fas fa-location-arrow"></i> Ваше местоположение</h4>
+                    <p id="current-location">Определяем ваше местоположение...</p>
+                </div>
+                
+                <div class="markers-list" id="markers-list">
+                    <h4 style="margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-layer-group"></i> Мои маркеры <span id="markers-count" style="background: #667eea; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">0/10</span>
+                    </h4>
+                    <div id="markers-container"></div>
+                </div>
+                
+                <div class="info-section" id="route-info" style="display: none;">
+                    <h4><i class="fas fa-route"></i> Маршрут</h4>
+                    <p id="route-distance"></p>
+                    <p id="route-duration"></p>
+                    <button class="clear-btn" onclick="clearRoute()" style="margin-top: 10px;">
+                        <i class="fas fa-trash"></i> Очистить маршрут
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
-    <div id="menu">
-        <div class="search-container">
-            <input type="text" id="search" placeholder="Поиск мест...">
-            <button id="settings" title="Настройки"></button>
-        </div>
-        <div class="results" id="results">
-            <p>Загружаем данные...</p>
-        </div>
-    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine -->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
     <script>
-        // Глобальные переменные
         let map;
-        const searchInput = document.getElementById('search');
-        const resultsContainer = document.getElementById('results');
-        const settingsButton = document.getElementById('settings');
-        const mapPlaceholder = document.getElementById('map-placeholder');
-
-        // Инициализация Яндекс Карты
+        let userLocation = null;
+        let currentMarker = null;
+        let routeControl = null;
+        let userMarker = null;
+        let markers = []; // Массив для хранения до 10 маркеров
+        let markersCount = 0;
+        let panelExpanded = false;
+        
+        // Инициализация карты с красивым стилем
         function initMap() {
-            ymaps.ready(() => {
-                map = new ymaps.Map('yandex-map', {
-                    center: [55.7558, 37.6173], // Москва
-                    zoom: 10
-                });
-
-                // Скрываем плейсхолдер
-                mapPlaceholder.style.display = 'none';
+            map = L.map('leaflet-map').setView([55.7558, 37.6173], 10);
+            
+            // Красивые тайлы CartoDB Voyager
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+            
+            // Получаем текущее местоположение
+            getCurrentLocation();
+            
+            // Обработчик ввода в поиске
+            document.getElementById('search').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchLocation();
+                }
+            });
+            
+            // Обработчики для выдвижной панели
+            const panel = document.getElementById('bottom-panel');
+            const handle = document.getElementById('panel-handle');
+            
+            // Наведение на панель
+            panel.addEventListener('mouseenter', function() {
+                if (!panelExpanded) {
+                    expandPanel();
+                }
+            });
+            
+            // Клик на ручку панели
+            handle.addEventListener('click', function() {
+                if (panelExpanded) {
+                    collapsePanel();
+                } else {
+                    expandPanel();
+                }
+            });
+            
+            // Свайп для мобильных
+            let startY = 0;
+            let currentY = 0;
+            
+            panel.addEventListener('touchstart', function(e) {
+                startY = e.touches[0].clientY;
+                currentY = startY;
+            });
+            
+            panel.addEventListener('touchmove', function(e) {
+                currentY = e.touches[0].clientY;
+                const diff = startY - currentY;
                 
-                // Загружаем посты с бекенда
-                loadPostsFromBackend();
+                if (diff > 50 && !panelExpanded) {
+                    // Свайп вверх - открываем
+                    expandPanel();
+                } else if (diff < -50 && panelExpanded) {
+                    // Свайп вниз - закрываем
+                    collapsePanel();
+                }
+            });
+            
+            // Закрытие панели при клике на карту
+            map.getContainer().addEventListener('click', function() {
+                if (panelExpanded) {
+                    collapsePanel();
+                }
             });
         }
 
-        // Загрузка постов с бекенда
-        async function loadPostsFromBackend() {
-            try {
-                const token = localStorage.getItem('auth_token');
-                
-                if (!token) {
-                    resultsContainer.innerHTML = `
-                        <div class="auth-message">
-                            <p>Для просмотра карты необходимо авторизоваться</p>
-                            <div class="auth-buttons">
-                                <button class="login-btn" onclick="login()">Войти</button>
-                                <button class="register-btn" onclick="register()">Регистрация</button>
-                            </div>
-                        </div>
-                    `;
-                    return;
-                }
+        // Раскрытие панели
+        function expandPanel() {
+            const panel = document.getElementById('bottom-panel');
+            panel.classList.add('expanded');
+            panelExpanded = true;
+        }
 
-                const response = await fetch('/gachi_muchenicki/map-data/', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
+        // Скрытие панели
+        function collapsePanel() {
+            const panel = document.getElementById('bottom-panel');
+            panel.classList.remove('expanded');
+            panelExpanded = false;
+        }
+
+        // Получение текущего местоположения
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = [
+                            position.coords.latitude,
+                            position.coords.longitude
+                        ];
+                        
+                        // Добавляем метку текущего местоположения
+                        userMarker = L.marker(userLocation, {
+                            className: 'user-marker'
+                        })
+                            .addTo(map)
+                            .bindPopup('<div style="font-weight: bold; color: #4CAF50;">📍 Ваше местоположение</div>')
+                            .openPopup();
+                        
+                        // Центрируем карту на пользователе
+                        map.setView(userLocation, 13);
+                        
+                        // Получаем адрес текущего местоположения
+                        getAddressFromCoords(userLocation[0], userLocation[1], 'current-location');
+                    },
+                    (error) => {
+                        console.log('Не удалось получить местоположение:', error);
+                        userLocation = [55.7558, 37.6173]; // Москва по умолчанию
+                        document.getElementById('current-location').textContent = 
+                            '📍 Используется Москва по умолчанию';
                     }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки данных');
-                }
-
-                const posts = await response.json();
-                displayPostsOnMap(posts);
-                displayPostsInResults(posts);
-
-            } catch (error) {
-                console.error('Ошибка загрузки постов:', error);
-                resultsContainer.innerHTML = `<p>Ошибка загрузки данных: ${error.message}</p>`;
+                );
             }
         }
 
-        // Отображение постов на карте
-        function displayPostsOnMap(posts) {
-            posts.forEach(post => {
-                // Случайные координаты для демонстрации (в реальном приложении должны быть в базе)
-                const randomLat = 55.7558 + (Math.random() - 0.5) * 0.1;
-                const randomLon = 37.6173 + (Math.random() - 0.5) * 0.1;
-                
-                const placemark = new ymaps.Placemark([randomLat, randomLon], {
-                    balloonContent: `
-                        <h3>${post.title}</h3>
-                        <p>${post.body}</p>
-                        <small>Автор: ${post.author.name}</small>
-                    `
-                }, {
-                    preset: 'islands#blueDotIcon'
-                });
-
-                map.geoObjects.add(placemark);
-            });
-        }
-
-        // Отображение постов в результатах
-        function displayPostsInResults(posts) {
-            if (posts.length === 0) {
-                resultsContainer.innerHTML = '<p>Нет доступных постов</p>';
+        // Поиск мест по названию
+        async function searchLocation() {
+            const query = document.getElementById('search').value.trim();
+            
+            if (!query) {
+                alert('Введите адрес для поиска');
                 return;
             }
-
-            resultsContainer.innerHTML = posts.map(post => `
-                <div style="margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                    <h4>${post.title}</h4>
-                    <p>${post.body}</p>
-                    <small>Автор: ${post.author.name}</small>
-                </div>
-            `).join('');
-        }
-
-        // Поиск
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const query = searchInput.value.trim();
-                if (query) {
-                    resultsContainer.innerHTML = `<p>Поиск: "${query}" - выполняется...</p>`;
-                    // Здесь можно добавить поиск по постам
-                    setTimeout(() => {
-                        resultsContainer.innerHTML = `<p>Поиск "${query}" - найдено ${Math.floor(Math.random() * 5)} результатов</p>`;
-                    }, 1000);
-                }
+            
+            try {
+                const response = await fetch(`/gachi_muchenicki/geocode/?query=${encodeURIComponent(query)}`);
+                const results = await response.json();
+                
+                displaySearchResults(results);
+            } catch (error) {
+                console.error('Ошибка поиска:', error);
+                alert('Ошибка при поиске адреса');
             }
-        });
-
-        settingsButton.addEventListener('click', () => {
-            alert('Настройки карты будут добавлены позже');
-        });
-
-        // Заглушки для авторизации
-        window.login = function() {
-            alert('Форма входа будет реализована позже');
         }
 
-        window.register = function() {
-            alert('Форма регистрации будет реализована позже');
+        // Отображение результатов поиска
+        function displaySearchResults(results) {
+            const resultsContainer = document.getElementById('search-results');
+            resultsContainer.innerHTML = '';
+            
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<div class="search-result-item">Ничего не найдено</div>';
+            } else {
+                results.forEach(result => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    item.textContent = result.name;
+                    item.onclick = () => selectSearchResult(result);
+                    resultsContainer.appendChild(item);
+                });
+            }
+            
+            resultsContainer.style.display = 'block';
+        }
+
+        // Выбор результата поиска
+        function selectSearchResult(result) {
+            // Скрываем результаты
+            document.getElementById('search-results').style.display = 'none';
+            
+            // Очищаем поле поиска
+            document.getElementById('search').value = result.name;
+            
+            // Добавляем маркер по выбранному адресу
+            addMarkerFromSearch(result);
+            
+            // Центрируем карту на выбранном месте
+            const latlng = [result.lat, result.lon];
+            map.setView(latlng, 15);
+            
+            // Строим маршрут от текущего местоположения до выбранного места
+            if (userLocation) {
+                buildRoute(userLocation, latlng, result.name);
+            }
+        }
+
+        // Добавление маркера из поиска
+        function addMarkerFromSearch(result) {
+            if (markersCount >= 10) {
+                alert('Достигнут лимит в 10 маркеров. Удалите некоторые маркеры перед добавлением новых.');
+                return;
+            }
+            
+            const latlng = [result.lat, result.lon];
+            const markerId = Date.now(); // Уникальный ID для маркера
+            
+            // Создаем красивый маркер
+            const marker = L.marker(latlng, {
+                className: 'custom-marker'
+            })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="min-width: 200px;">
+                        <h4 style="margin: 0 0 8px 0; color: #2c3e50;">${result.name}</h4>
+                        <button onclick="removeMarker(${markerId})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; width: 100%;">
+                            <i class="fas fa-trash"></i> Удалить маркер
+                        </button>
+                    </div>
+                `);
+            
+            // Добавляем маркер в массив
+            markers.push({
+                id: markerId,
+                marker: marker,
+                name: result.name,
+                latlng: latlng
+            });
+            
+            markersCount++;
+            updateMarkersCount();
+            
+            // Обновляем список маркеров
+            updateMarkersList();
+        }
+
+        // Добавление маркера по текущему местоположению
+        function addMarkerAtCurrentLocation() {
+            if (!userLocation) {
+                alert('Не удалось определить ваше местоположение');
+                return;
+            }
+            
+            if (markersCount >= 10) {
+                alert('Достигнут лимит в 10 маркеров. Удалите некоторые маркеры перед добавлением новых.');
+                return;
+            }
+            
+            const markerId = Date.now();
+            
+            // Создаем маркер по текущему местоположению
+            const marker = L.marker(userLocation, {
+                className: 'custom-marker'
+            })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="min-width: 200px;">
+                        <h4 style="margin: 0 0 8px 0; color: #2c3e50;">Маркер ${markersCount + 1}</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 12px; color: #6c757d;">Добавлен по текущему местоположению</p>
+                        <button onclick="removeMarker(${markerId})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; width: 100%;">
+                            <i class="fas fa-trash"></i> Удалить маркер
+                        </button>
+                    </div>
+                `);
+            
+            // Получаем адрес для названия маркера
+            getAddressFromCoords(userLocation[0], userLocation[1], null, markerId);
+            
+            // Добавляем маркер в массив
+            markers.push({
+                id: markerId,
+                marker: marker,
+                name: `Маркер ${markersCount + 1}`,
+                latlng: userLocation
+            });
+            
+            markersCount++;
+            updateMarkersCount();
+            
+            // Обновляем список маркеров
+            updateMarkersList();
+        }
+
+        // Обновление счетчика маркеров
+        function updateMarkersCount() {
+            document.getElementById('markers-count').textContent = `${markersCount}/10`;
+        }
+
+        // Обновление списка маркеров в панели
+        function updateMarkersList() {
+            const container = document.getElementById('markers-container');
+            container.innerHTML = '';
+            
+            if (markersCount === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">Маркеры не добавлены</div>';
+                return;
+            }
+            
+            markers.forEach((marker, index) => {
+                const item = document.createElement('div');
+                item.className = 'marker-item';
+                item.innerHTML = `
+                    <div class="marker-name">${marker.name}</div>
+                    <div class="marker-actions">
+                        <button class="action-btn" onclick="centerOnMarker(${marker.id})" title="Центрировать на маркере">
+                            <i class="fas fa-crosshairs"></i>
+                        </button>
+                        <button class="clear-btn" onclick="removeMarker(${marker.id})" title="Удалить маркер">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Центрирование карты на маркере
+        function centerOnMarker(markerId) {
+            const markerObj = markers.find(m => m.id === markerId);
+            if (markerObj) {
+                map.setView(markerObj.latlng, 15);
+                markerObj.marker.openPopup();
+                expandPanel();
+            }
+        }
+
+        // Удаление маркера
+        function removeMarker(markerId) {
+            const markerIndex = markers.findIndex(m => m.id === markerId);
+            if (markerIndex !== -1) {
+                // Удаляем маркер с карты
+                map.removeLayer(markers[markerIndex].marker);
+                
+                // Удаляем из массива
+                markers.splice(markerIndex, 1);
+                markersCount--;
+                updateMarkersCount();
+                
+                // Обновляем список
+                updateMarkersList();
+            }
+        }
+
+        // Очистка всех маркеров
+        function clearAllMarkers() {
+            if (markersCount === 0) {
+                alert('Нет маркеров для удаления');
+                return;
+            }
+            
+            if (confirm(`Вы уверены, что хотите удалить все маркеры (${markersCount})?`)) {
+                markers.forEach(marker => {
+                    map.removeLayer(marker.marker);
+                });
+                
+                markers = [];
+                markersCount = 0;
+                updateMarkersCount();
+                updateMarkersList();
+                
+                alert('Все маркеры удалены');
+            }
+        }
+
+        // Получение адреса по координатам
+        async function getAddressFromCoords(lat, lng, elementId, markerId = null) {
+            try {
+                const response = await fetch(`/gachi_muchenicki/reverse-geocode/?lat=${lat}&lon=${lng}`);
+                const data = await response.json();
+                
+                if (data.name) {
+                    if (elementId) {
+                        document.getElementById(elementId).textContent = `📍 ${data.name}`;
+                    }
+                    
+                    // Обновляем имя маркера если нужно
+                    if (markerId) {
+                        const markerObj = markers.find(m => m.id === markerId);
+                        if (markerObj) {
+                            markerObj.name = data.name;
+                            updateMarkersList();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка получения адреса:', error);
+            }
+        }
+
+        // Построение маршрута
+        function buildRoute(fromCoords, toCoords, locationName) {
+            // Удаляем предыдущий маршрут
+            if (routeControl) {
+                map.removeControl(routeControl);
+            }
+            
+            // Создаем маршрут
+            routeControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(fromCoords[0], fromCoords[1]),
+                    L.latLng(toCoords[0], toCoords[1])
+                ],
+                routeWhileDragging: false,
+                showAlternatives: false,
+                lineOptions: {
+                    styles: [{color: '#667eea', opacity: 0.8, weight: 5}]
+                },
+                createMarker: function() { return null; }
+            }).addTo(map);
+            
+            // Слушаем событие нахождения маршрута
+            routeControl.on('routesfound', function(e) {
+                const routes = e.routes;
+                const route = routes[0];
+                
+                // Получаем информацию о маршруте
+                const distance = (route.summary.totalDistance / 1000).toFixed(1);
+                const duration = Math.round(route.summary.totalTime / 60);
+                
+                // Отображаем информацию
+                document.getElementById('route-distance').textContent = `📏 Расстояние: ${distance} км`;
+                document.getElementById('route-duration').textContent = `⏱️ Время в пути: ${duration} минут`;
+                document.getElementById('route-info').style.display = 'block';
+                
+                expandPanel();
+            });
+        }
+
+        // Очистка маршрута
+        function clearRoute() {
+            if (routeControl) {
+                map.removeControl(routeControl);
+                routeControl = null;
+            }
+            
+            document.getElementById('route-info').style.display = 'none';
         }
 
         // Инициализация при загрузке страницы

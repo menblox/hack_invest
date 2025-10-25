@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Float
 from sqlalchemy.orm import relationship, Mapped
 from app.db.database import Base
 
@@ -21,3 +21,13 @@ class Post(Base):
     author_id: Mapped[int] = Column(Integer, ForeignKey("users.id"))
 
     author: Mapped["User"] = relationship("User")
+
+# НОВАЯ МОДЕЛЬ ДЛЯ МЕСТ
+class Location(Base):
+    __tablename__ = "locations"
+
+    id: Mapped[int] = Column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = Column(String, index=True)
+    description: Mapped[str] = Column(String)
+    latitude: Mapped[float] = Column(Float)
+    longitude: Mapped[float] = Column(Float)
