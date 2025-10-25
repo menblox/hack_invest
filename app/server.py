@@ -148,7 +148,7 @@ async def get_user_profile(
 # ГЕОКОДИРОВАНИЕ - поиск по названию
 @app.get("/gachi_muchenicki/geocode/")
 @limiter.limit("30/minute")
-async def geocode_location(request: Request, query: str):
+async def geocode_location(query: str):
     """
     Геокодирование адреса через Nominatim (OpenStreetMap)
     """
@@ -183,7 +183,7 @@ async def geocode_location(request: Request, query: str):
 # ОБРАТНОЕ ГЕОКОДИРОВАНИЕ - получение адреса по координатам
 @app.get("/gachi_muchenicki/reverse-geocode/")
 @limiter.limit("30/minute")
-async def reverse_geocode(request: Request, lat: float, lon: float):
+async def reverse_geocode(lat: float, lon: float):
     """
     Обратное геокодирование координат в адрес
     """
@@ -214,10 +214,39 @@ async def reverse_geocode(request: Request, lat: float, lon: float):
 # СТРАНИЦА КАРТЫ (HTML)
 @app.get("/gachi_muchenicki/map/")
 @limiter.limit("20/minute")
-async def serve_map_page(request: Request):
+async def serve_map_page(
+    request: Request,
+):
     html_file_path = "frontend/index.html"
     
     if not os.path.exists(html_file_path):
         raise HTTPException(status_code=404, detail="Map page not found")
     
     return FileResponse(html_file_path)
+
+# ЛОГИН ДЛЯ ФРОНТЕНДА - ПРОСТОЙ ВАРИАНТ
+@app.post("/gachi_muchenicki/simple-login/")
+async def simple_login(request: Request, db: Session = Depends(get_db)):
+    try:
+        form_data = await request.form()
+        email = form_data.get("email")
+        password = form_data.get("password")
+        
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password required")
+        
+        # Ищем пользователя по email
+        db_user = db.query(User).filter(User.email == email).first()
+        
+        if db_user is None:
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+        if not verify_password(password, db_user.hash_password):
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
+        
+        # Перенаправляем на карту
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/gachi_muchenicki/map/", status_code=303)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

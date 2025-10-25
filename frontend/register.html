@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .register-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            backdrop-filter: blur(10px);
+            animation: slideUp 0.8s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .form-group:nth-child(1) { animation-delay: 0.1s; }
+        .form-group:nth-child(2) { animation-delay: 0.2s; }
+        .form-group:nth-child(3) { animation-delay: 0.3s; }
+        .form-group:nth-child(4) { animation-delay: 0.4s; }
+        .form-group:nth-child(5) { animation-delay: 0.5s; }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #fff;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        input.valid {
+            border-color: #4CAF50;
+        }
+
+        input.error {
+            border-color: #f44336;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .password-strength {
+            height: 4px;
+            background: #e1e5e9;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+
+        .strength-weak { background: #f44336; width: 33%; }
+        .strength-medium { background: #ff9800; width: 66%; }
+        .strength-strong { background: #4CAF50; width: 100%; }
+
+        .strength-text {
+            font-size: 0.8rem;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .error-message {
+            color: #f44336;
+            font-size: 0.8rem;
+            margin-top: 5px;
+            display: none;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .success-message {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+            animation: bounceIn 0.6s ease-out;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .login-link {
+            text-align: center;
+            margin-top: 25px;
+            color: #666;
+        }
+
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="logo">
+            <h1>🚀</h1>
+            <p>Создайте свой аккаунт</p>
+        </div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <div class="input-wrapper">
+                    <input type="email" id="email" name="email" placeholder="your@email.com" required>
+                </div>
+                <div class="error-message" id="emailError">Введите корректный email</div>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Логин</label>
+                <div class="input-wrapper">
+                    <input type="text" id="username" name="username" placeholder="Придумайте логин" required>
+                </div>
+                <div class="error-message" id="usernameError">Логин должен содержать от 3 до 20 символов</div>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Телефон</label>
+                <div class="input-wrapper">
+                    <input type="tel" id="phone" name="phone" placeholder="+7 (900) 123-45-67" required>
+                </div>
+                <div class="error-message" id="phoneError">Введите корректный номер телефона</div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Пароль</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Создайте надежный пароль" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword('password')">👁️</button>
+                </div>
+                <div class="password-strength">
+                    <div class="strength-bar" id="passwordStrength"></div>
+                </div>
+                <div class="strength-text" id="strengthText"></div>
+                <div class="error-message" id="passwordError">Пароль должен содержать минимум 8 символов, включая буквы и цифры</div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Подтверждение пароля</label>
+                <div class="input-wrapper">
+                    <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Повторите пароль" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword('confirmPassword')">👁️</button>
+                </div>
+                <div class="error-message" id="confirmPasswordError">Пароли не совпадают</div>
+            </div>
+
+            <button type="submit" class="submit-btn">Создать аккаунт</button>
+
+            <div class="success-message" id="successMessage">
+                ✅ Регистрация успешно завершена!
+            </div>
+        </form>
+
+        <div class="login-link">
+            Уже есть аккаунт? <a href="#">Войти</a>
+        </div>
+    </div>
+
+    <script>
+        // Переключение видимости пароля
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
+            field.setAttribute('type', type);
+        }
+
+        // Валидация email
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+
+        // Валидация телефона
+        function validatePhone(phone) {
+            const re = /^\+7\s?\(?\d{3}\)?\s?\d{3}-?\d{2}-?\d{2}$/;
+            return re.test(phone);
+        }
+
+        // Проверка сложности пароля
+        function checkPasswordStrength(password) {
+            let strength = 0;
+            const strengthBar = document.getElementById('passwordStrength');
+            const strengthText = document.getElementById('strengthText');
+
+            if (password.length >= 8) strength++;
+            if (password.match(/[a-z]/) && password.match(/[A-Z]/)) strength++;
+            if (password.match(/\d/)) strength++;
+            if (password.match(/[^a-zA-Z\d]/)) strength++;
+
+            strengthBar.className = 'strength-bar';
+            switch(strength) {
+                case 1:
+                    strengthBar.classList.add('strength-weak');
+                    strengthText.textContent = 'Слабый';
+                    strengthText.style.color = '#f44336';
+                    break;
+                case 2:
+                    strengthBar.classList.add('strength-medium');
+                    strengthText.textContent = 'Средний';
+                    strengthText.style.color = '#ff9800';
+                    break;
+                case 3:
+                case 4:
+                    strengthBar.classList.add('strength-strong');
+                    strengthText.textContent = 'Сильный';
+                    strengthText.style.color = '#4CAF50';
+                    break;
+                default:
+                    strengthText.textContent = '';
+            }
+        }
+
+        // Валидация формы в реальном времени
+        document.getElementById('email').addEventListener('input', function() {
+            const error = document.getElementById('emailError');
+            if (!validateEmail(this.value)) {
+                this.classList.add('error');
+                this.classList.remove('valid');
+                error.style.display = 'block';
+            } else {
+                this.classList.remove('error');
+                this.classList.add('valid');
+                error.style.display = 'none';
+            }
+        });
+
+        document.getElementById('username').addEventListener('input', function() {
+            const error = document.getElementById('usernameError');
+            if (this.value.length < 3 || this.value.length > 20) {
+                this.classList.add('error');
+                this.classList.remove('valid');
+                error.style.display = 'block';
+            } else {
+                this.classList.remove('error');
+                this.classList.add('valid');
+                error.style.display = 'none';
+            }
+        });
+
+        document.getElementById('phone').addEventListener('input', function() {
+            const error = document.getElementById('phoneError');
+            if (!validatePhone(this.value)) {
+                this.classList.add('error');
+                this.classList.remove('valid');
+                error.style.display = 'block';
+            } else {
+                this.classList.remove('error');
+                this.classList.add('valid');
+                error.style.display = 'none';
+            }
+        });
+
+        document.getElementById('password').addEventListener('input', function() {
+            const error = document.getElementById('passwordError');
+            checkPasswordStrength(this.value);
+            
+            if (this.value.length < 8 || !this.value.match(/\d/) || !this.value.match(/[a-zA-Z]/)) {
+                this.classList.add('error');
+                this.classList.remove('valid');
+                error.style.display = 'block';
+            } else {
+                this.classList.remove('error');
+                this.classList.add('valid');
+                error.style.display = 'none';
+            }
+
+            // Проверка совпадения паролей
+            const confirmPassword = document.getElementById('confirmPassword');
+            if (confirmPassword.value) {
+                validatePasswordMatch();
+            }
+        });
+
+        function validatePasswordMatch() {
+            const password = document.getElementById('password');
+            const confirmPassword = document.getElementById('confirmPassword');
+            const error = document.getElementById('confirmPasswordError');
+
+            if (password.value !== confirmPassword.value) {
+                confirmPassword.classList.add('error');
+                confirmPassword.classList.remove('valid');
+                error.style.display = 'block';
+            } else {
+                confirmPassword.classList.remove('error');
+                confirmPassword.classList.add('valid');
+                error.style.display = 'none';
+            }
+        }
+
+        // ДОБАВЛЕННЫЙ КОД: Обработчик отправки формы
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Проверяем валидность всех полей
+            const isEmailValid = validateEmail(document.getElementById('email').value);
+            const isUsernameValid = document.getElementById('username').value.length >= 3 && document.getElementById('username').value.length <= 20;
+            const isPhoneValid = validatePhone(document.getElementById('phone').value);
+            const isPasswordValid = document.getElementById('password').value.length >= 8 && 
+                                   document.getElementById('password').value.match(/\d/) && 
+                                   document.getElementById('password').value.match(/[a-zA-Z]/);
+            const isConfirmPasswordValid = document.getElementById('password').value === document.getElementById('confirmPassword').value;
+
+            // Если все поля валидны
+            if (isEmailValid && isUsernameValid && isPhoneValid && isPasswordValid && isConfirmPasswordValid) {
+                // Показываем сообщение об успехе
+                const successMessage = document.getElementById('successMessage');
+                successMessage.style.display = 'block';
+
+                // Через 2 секунды перенаправляем на нужный эндпоинт
+                setTimeout(() => {
+                    window.location.href = '/gachi_muchenicki/map/';
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
